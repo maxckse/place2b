@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game</title>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="upgradeShop"></div> <!-- Add this div for the upgrade shop -->
+    <button id="resetButton">Reset Game</button>
+    <script src="script.js"></script>
+    <script>const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const shootSound = new Audio('audio/blaster-2-81267.mp3');
+        document.addEventListener("DOMContentLoaded", function() {
+        // Function to reset the game
+        function resetGame() {
+            // Reset player score
+            score = 0;
+            // Reset player power-ups and other relevant variables
+            player.speed = 7;
+            // Reset any other game-related variables
+        
+            // Update display to reflect the changes (if needed)
+            updateScoreDisplay();
+        }
+        
+        // Function to save player data to localStorage
+        function savePlayerData() {
+            localStorage.setItem("score", score);
+            // Save other player data as needed
+        }
+        
+        // Function to load player data from localStorage
+        function loadPlayerData() {
+            score = parseInt(localStorage.getItem("score")) || 0;
+            // Load other player data as needed
+        }
+        
+        // Function to start the game
+        function startGame() {
+            // Load player data from localStorage
+            loadPlayerData();
+        
+            // Start the game loop
+            gameLoop();
+        }
+        
+        // Event listener for game reset
+        document.getElementById("resetButton").addEventListener("click", function() {
+            // Reset the game
+            resetGame();
+            // Save player data
+            savePlayerData();
+        });
+        
+        // Add event listener for upgrade shop clicks
+        document.getElementById("upgradeShop").addEventListener("click", function(event) {
+            if (event.target.classList.contains("upgrade-option")) {
+                const upgradeType = event.target.id;
+                const upgradeCost = upgradeCosts[upgradeType];
+        
+                // Check if the player has enough score to purchase the upgrade
+                if (score >= upgradeCost) {
+                    // Deduct the upgrade cost from the score
+                    score -= upgradeCost;
+                    // Perform the upgrade based on the upgrade type
+                    switch (upgradeType) {
+                        case "speedUpgrade":
+                            // Implement logic to upgrade player speed
+                            player.speed += 1;
+                            break;
+                        case "damageUpgrade":
+                            // Implement logic to upgrade player damage
+                            // For example: increase bullet damage
+                            bulletDamage += 1;
+                            break;
+                        case "healthUpgrade":
+                            // Implement logic to upgrade player health
+                            // For example: increase player health
+                            player.health += 1;
+                            break;
+                        // Add cases for other upgrade types as needed
+                    }
+                    // Update the display to reflect the changes
+                    updateScoreDisplay();
+                    // Optionally, update other game elements affected by the upgrade
+                } else {
+                    // Display a message indicating insufficient score
+                    console.log("Insufficient score to purchase this upgrade.");
+                }
+            }
+        });
+        
+        // Function to update the score display
+        function updateScoreDisplay() {
+            document.getElementById("scoreDisplay").textContent = "Score: " + score;
+        }
+        
+        // Game Variables
+        const player = { x: canvas.width / 2, y: canvas.height - 30, width: 40, height: 40, speed: 7, damage: 1, fireRate: 1, maxHealth: 100, health: 100 };
+        let keys = {}, bullets = [], enemies = [], score = 0, level = 1, gameOver = false, frame = 0;
+        
+        // Explosions array
+        let explosions = [];
+        
+        // Power-Up Types
+        const PowerUpTypes = {
+            SPEED: 'speed',
+            RAPID_FIRE: 'rapid_fire',
+            SHIELD: 'shield'
+        };
+        
+        // Power-Up Objects
+        let powerUps = [];
+        
+        // Upgrade Types
+        const UpgradeTypes = {
+            DAMAGE: 'damage',
+            FIRE_RATE: 'fire_rate',
+            HEALTH: 'health'
+        };
+        
+        // Upgrade Shop
+        const upgradeCosts = {
+            [UpgradeTypes.DAMAGE]: 50,
+            [UpgradeTypes.FIRE_RATE]: 75,
+            [UpgradeTypes.HEALTH]: 100
+        };
+        
+        // Function to handle collision with power-ups
+        function checkPowerUpCollision() {
+            powerUps.forEach((powerUp, index) => {
+                if (checkCollision(player, powerUp)) {
+                    applyPowerUp(powerUp.type);
+                    powerUps.splice(index, 1); // Remove the power-up from the array
+                }
+            });
+        }
+        
+        // Function to handle purchasing upgrades
+        function purchaseUpgrade(type) {
+            if (upgradeCosts[type] <= score) {
+                score -= upgradeCosts[type]; // Deduct the cost from the player's score
+                switch (type) {
+                    case UpgradeTypes.DAMAGE:
+                        player.damage++; // Increase player's damage output
+                        break;
+                    case UpgradeTypes.FIRE_RATE:
+                        player.fireRate *= 0.8; // Increase player's fire rate
+                        break;
+                    case UpgradeTypes.HEALTH:
+                        player.maxHealth += 20; // Increase player's maximum health
+                        player.health = player.maxHealth; // Heal player to full health
+                        break;
+                }
+            } else {
+                console.log("Not enough score to purchase upgrade!");
+                // Optionally, you can provide feedback to the player that they don't have enough score to purchase the upgrade
+            }
+        }
+        
+        // Function to generate random power-ups
+        function generatePowerUp() {
+            const randomX = Math.random() * (canvas.width - 30);
+            const randomType = Object.values(PowerUpTypes)[Math.floor(Math.random() * Object.keys(PowerUpTypes).length)];
+            powerUps.push({ x: randomX, y: -30, type: randomType });
+        }
+        
+        // Function to update power-up positions
+        function updatePowerUps() {
+            powerUps.forEach(powerUp => {
+                powerUp.y += 2; // Move power-up downwards
+            });
+            powerUps = powerUps.filter(powerUp => powerUp.y < canvas.height); // Remove power-ups that have gone off-screen
+        }
+        
+        // Inside the update function, add the following:
+        updatePowerUps();
+        checkPowerUpCollision();
+        
+        // Inside the draw function, add the following to draw power-ups:
+        function drawPowerUps() {
+            powerUps.forEach(powerUp => {
+                ctx.fillStyle = '#ff0'; // Yellow color for power-ups
+                ctx.fillRect(powerUp.x, powerUp.y, 30, 30); // Adjust the size as needed
+            });
+        }
+        
+        // Inside the draw function, call drawPowerUps():
+        drawPowerUps();
+        
+        // Inside the game loop, add the following to generate power-ups at intervals:
+        if (frame % 300 === 0) { // Adjust the interval as needed
+            generatePowerUp();
+        }
+        
+        // Inside the game loop, add the following to draw the upgrade shop UI:
+        function drawUpgradeShop() {
+            ctx.fillStyle = '#fff';
+            ctx.font = '16px Arial';
+            ctx.fillText('Upgrade Shop', 10, 20);
+            ctx.fillText(`Score: ${score}`, 10, 40);
+            Object.entries(upgradeCosts).forEach(([type, cost], index) => {
+                ctx.fillText(`${type}: ${cost} score`, 10, 60 + index * 20);
+            });
+        }
+        
+        // Inside the draw function, call drawUpgradeShop():
+        drawUpgradeShop();
+        
+        
+        
+        // Event listeners for arrow key input
+        document.addEventListener("keydown", e => { keys[e.key] = true; });
+        document.addEventListener("keyup", e => { keys[e.key] = false; });
+        
+        // Event listener for mouse click
+        canvas.addEventListener("click", handleMouseClick);
+        
+        // Utility functions
+        function handleMouseClick(e) {
+            const dx = e.clientX - canvas.offsetLeft - (player.x + player.width / 2);
+            const dy = e.clientY - canvas.offsetTop - (player.y + player.height / 2);
+            const angle = Math.atan2(dy, dx);
+            bullets.push({ x: player.x + player.width / 2 - 2.5, y: player.y + player.height / 2, targetX: e.clientX - canvas.offsetLeft, targetY: e.clientY - canvas.offsetTop, width: 5, height: 10, speed: 7 });
+            shootSound.play().catch(error => console.error("Failed to play sound:", error)); // Catch any errors when playing sound
+        }
+        canvas.addEventListener('click', (e) => {
+            const clickX = e.clientX - canvas.offsetLeft;
+            const clickY = e.clientY - canvas.offsetTop;
+            Object.entries(upgradeCosts).forEach(([type, cost]) => {
+                if (clickX >= 10 && clickX <= 200 && clickY >= 60 && clickY <= 60 + Object.keys(upgradeCosts).length * 20) {
+                    purchaseUpgrade(type);
+                }
+            });
+        });
+        function update() {
+            updatePlayer();
+            updateBullets();
+            updateEnemies();
+            updateExplosions(); // Update explosions
+            checkCollisions();
+            updateTimer();
+        }
+        
+        function updatePlayer() {
+            if (keys["ArrowLeft"] && player.x > 0) player.x -= player.speed;
+            if (keys["ArrowRight"] && player.x < canvas.width - player.width) player.x += player.speed;
+            if (keys["ArrowUp"] && player.y > 0) player.y -= player.speed;
+            if (keys["ArrowDown"] && player.y < canvas.height - player.height) player.y += player.speed;
+        }
+        
+        function updateBullets() {
+            bullets.forEach(bullet => {
+                const dx = bullet.targetX - bullet.x, dy = bullet.targetY - bullet.y, distance = Math.sqrt(dx * dx + dy * dy);
+                bullet.x += dx / distance * bullet.speed;
+                bullet.y += dy / distance * bullet.speed;
+            });
+            bullets = bullets.filter(bullet => bullet.y > 0 && bullet.x > 0 && bullet.x < canvas.width && bullet.y < canvas.height);
+        }
+        
+        function updateEnemies() {
+            if (enemies.length === 0) {
+                level++;
+                resetTimer(); // Reset timer for new level
+                const numEnemies = Math.floor(Math.random() * 2) + level; // Random number of enemies between level and level + 1
+                for (let i = 0; i < numEnemies; i++) {
+                    const mutationChance = Math.random();
+                    let enemy = { x: Math.random() * (canvas.width - 50), y: Math.random() * 100, width: 30, height: 30, speed: 4, huntDistance: 200, aggressiveSpeed: 4 };
+                    if (mutationChance < 0.1) {
+                        enemy.health = 2; // Take two shots to kill
+                    } else if (mutationChance < 0.2) {
+                        enemy.shooter = true; // Shooter mutation
+                    } else if (mutationChance < 0.3) {
+                        enemy.shield = 3; // Shield mutation
+                    } else if (mutationChance < 0.4) {
+                        enemy.color = "#0000FF"; // Blue mutation
+                    } else if (mutationChance < 0.5) {
+                        enemy.speed *= 2; // Faster mutation
+                    } else if (mutationChance < 0.6) {
+                        enemy.spikes = true; // Spikes mutation
+                    }
+                    enemies.push(enemy);
+                }
+            }
+            enemies.forEach(enemy => {
+                const dx = player.x - enemy.x, dy = player.y - enemy.y, distance = Math.sqrt(dx * dx + dy * dy), nx = dx / distance, ny = dy / distance;
+                if (distance < enemy.huntDistance) { enemy.x += nx * enemy.aggressiveSpeed; enemy.y += ny * enemy.aggressiveSpeed; }
+                else { const angle = Math.atan2(dy, dx); enemy.x += Math.cos(angle) * enemy.speed; enemy.y += Math.sin(angle) * enemy.speed; }
+                enemy.x = clamp(enemy.x, 0, canvas.width - enemy.width);
+                enemy.y = clamp(enemy.y, 0, canvas.height - enemy.height);
+                if (enemy.shooter) { // Shooter mutation
+                    const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+                    bullets.push({ x: enemy.x + enemy.width / 2 - 2.5, y: enemy.y + enemy.height / 2, targetX: player.x, targetY: player.y, width: 5, height: 10, speed: 5 });
+                }
+            });
+        }
+        
+        function checkCollisions() {
+            bullets.forEach(bullet => {
+                enemies.forEach(enemy => {
+                    if (checkCollision(bullet, enemy)) {
+                        score += 10;
+                        createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2); // Create explosion at enemy's position
+                        bullets = bullets.filter(b => b !== bullet);
+                        if (enemy.health) {
+                            enemy.health--;
+                            if (enemy.health === 0) {
+                                enemies = enemies.filter(e => e !== enemy);
+                            }
+                        } else {
+                            enemies = enemies.filter(e => e !== enemy);
+                        }
+                    }
+                });
+            });
+            enemies.forEach(enemy => {
+                if (checkCollision(player, enemy)) gameOver = true;
+            });
+        }
+        
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPlayer();
+            drawBullets();
+            drawEnemies();
+            drawExplosions(); // Draw explosions
+            drawPowerUps(); // Draw power-ups
+            drawScoreAndLevel();
+            drawUpgradeShop(); // Draw upgrade shop UI
+            if (gameOver) drawGameOver();
+            drawTimer();
+        }
+        
+        function drawPlayer() { ctx.fillStyle = "#00F"; ctx.fillRect(player.x, player.y, player.width, player.height); }
+        function drawBullets() { ctx.fillStyle = "#F00"; bullets.forEach(bullet => { ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height); }); }
+        function drawEnemies() { 
+            enemies.forEach(enemy => {
+                ctx.fillStyle = enemy.color || "#0F0"; 
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                if (enemy.spikes) { // Spikes mutation
+                    ctx.fillStyle = "#FF0000";
+                    ctx.fillRect(enemy.x, enemy.y + enemy.height - 5, enemy.width, 5);
+                }
+                if (enemy.shield && enemy.shield > 0) {
+                    ctx.fillStyle = "rgba(0, 255, 0, 0.5)"; // Semi-transparent green for shield
+                    ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                }
+            }); 
+        }
+        function drawScoreAndLevel() { ctx.fillStyle = "#000"; ctx.font = "20px Arial"; ctx.fillText(`Score: ${score}`, 10, 30); ctx.fillText(`Level: ${level}`, canvas.width - 100, 30); }
+        function drawGameOver() { 
+            ctx.fillStyle = "#000"; 
+            ctx.font = "20px Arial"; 
+            ctx.fillText("Game Over!", canvas.width / 2 - 50, canvas.height / 2); 
+        }
+        function drawTimer() { ctx.fillStyle = "#000"; ctx.font = "20px Arial"; ctx.fillText(`Time Left: ${remainingTime}`, canvas.width / 2 - 50, 30); }
+        
+        function clamp(value, min, max) { return Math.min(Math.max(value, min), max); }
+        function checkCollision(obj1, obj2) { return obj1.x < obj2.x + obj2.width && obj1.x + obj1.width > obj2.x && obj1.y < obj2.y + obj2.height && obj1.y + obj1.height > obj2.y; }
+        
+        let gameTime = 10000; // Initial game time in seconds
+        let remainingTime = gameTime; // Remaining time
+        let timerTimeout; // Timeout reference for the timer
+        
+        // Define the updateTimer function to be called every second
+        function updateTimer() {
+            if (remainingTime > 0 && enemies.length > 0) {
+                remainingTime--;
+                // Update the timer again in 1 second
+                timerTimeout = setTimeout(updateTimer, 1000);
+            } else if (remainingTime === 0 && enemies.length > 0) {
+                gameOver = true;
+            }
+        }
+        
+        // Function to reset the timer for a new level
+        function resetTimer() {
+            clearTimeout(timerTimeout); // Clear the existing timeout
+            remainingTime = gameTime; // Reset remaining time to initial game time
+            updateTimer();
+        }
+        
+        // Function to create an explosion effect
+        function createExplosion(x, y) {
+            for (let i = 0; i < 30; i++) { // Create 30 particles for explosion
+                const speed = Math.random() * 5 + 1; // Random speed for each particle
+                const angle = Math.random() * Math.PI * 2; // Random angle
+                const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`; // Random color
+                const dx = Math.cos(angle) * speed;
+                const dy = Math.sin(angle) * speed;
+                explosions.push({ x, y, dx, dy, color, size: Math.random() * 5 + 1 }); // Add particle to explosions array
+            }
+        }
+        
+        // Update function to update explosions
+        function updateExplosions() {
+            explosions.forEach((explosion, index) => {
+                explosion.x += explosion.dx;
+                explosion.y += explosion.dy;
+                explosion.size -= 0.1; // Decrease size over time
+                if (explosion.size <= 0) {
+                    explosions.splice(index, 1); // Remove explosion particle if size is zero
+                }
+            });
+        }
+        
+        // Draw function to draw explosions
+        function drawExplosions() {
+            explosions.forEach(explosion => {
+                ctx.fillStyle = explosion.color;
+                ctx.fillRect(explosion.x, explosion.y, explosion.size, explosion.size);
+            });
+        }
+        
+        // Start the game loop
+        function gameLoop() {
+            update();
+            draw();
+            if (!gameOver) requestAnimationFrame(gameLoop);
+        }
+        
+        // Start the game
+        startGame();
+        
+        // Function to start the game
+        function startGame() {
+            // Reset game variables
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 30;
+            keys = {};
+            bullets = [];
+            enemies = [];
+            score = 0;
+            level = 1;
+            gameOver = false;
+            remainingTime = gameTime;
+            explosions = [];
+            clearTimeout(timerTimeout);
+        
+            // Generate enemies
+            for (let i = 0; i < level; i++) {
+                const mutationChance = Math.random();
+                let enemy = { x: Math.random() * (canvas.width - 50), y: Math.random() * 100, width: 30, height: 30, speed: 4, huntDistance: 200, aggressiveSpeed: 4 };
+                if (mutationChance < 0.1) {
+                    enemy.health = 2; // Take two shots to kill
+                } else if (mutationChance < 0.2) {
+                    enemy.shooter = true; // Shooter mutation
+                } else if (mutationChance < 0.3) {
+                    enemy.shield = 3; // Shield mutation
+                } else if (mutationChance < 0.4) {
+                    enemy.color = "#0000FF"; // Blue mutation
+                } else if (mutationChance < 0.5) {
+                    enemy.speed *= 2; // Faster mutation
+                } else if (mutationChance < 0.6) {
+                    enemy.spikes = true; // Spikes mutation
+                }
+                enemies.push(enemy);
+            }
+        
+            // Start the game loop
+            gameLoop();
+        }
+        });</script>
+</body>
+</html>
